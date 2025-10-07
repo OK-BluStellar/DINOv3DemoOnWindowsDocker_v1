@@ -67,6 +67,51 @@ docker-compose up --build
 - モデルを切り替えた後は、`docker-compose up --build`を実行してコンテナを再構築してください
 - 初回起動時は、モデルのダウンロードに時間がかかる場合があります
 - DINOv3モデルは、DINOv2と比較してメモリ使用量が若干多くなる場合があります
+- **重要**: DINOv3モデルは**Gated Repository**（制限付きリポジトリ）です。使用するにはHugging Faceアカウントでの認証が必要です
+
+### DINOv3モデルの認証設定
+
+DINOv3モデルを使用する場合は、以下の手順で認証を設定してください：
+
+1. **Hugging Faceアカウントの作成**
+   - [Hugging Face](https://huggingface.co/)でアカウントを作成
+
+2. **モデルへのアクセス申請**
+   - [DINOv3モデルページ](https://huggingface.co/facebook/dinov3-vitb16-pretrain-lvd1689m)にアクセス
+   - "Agree and Access Repository"をクリックして利用規約に同意
+
+3. **アクセストークンの取得**
+   - [Settings > Access Tokens](https://huggingface.co/settings/tokens)でトークンを作成
+   - "Read"権限で十分です
+
+4. **トークンの設定**
+   
+   プロジェクトのルートディレクトリに`.env`ファイルを作成し、以下を記述:
+   
+   ```
+   MODEL_NAME=facebook/dinov3-vitb16-pretrain-lvd1689m
+   HF_TOKEN=your_huggingface_token_here
+   ```
+
+5. **Docker Composeファイルの更新**
+   
+   `docker-compose.yml`のbackendサービスに環境変数を追加:
+   
+   ```yaml
+   backend:
+     environment:
+       - PYTHONUNBUFFERED=1
+       - MODEL_NAME=${MODEL_NAME:-facebook/dinov2-base}
+       - HF_TOKEN=${HF_TOKEN:-}
+   ```
+
+6. **コンテナの起動**
+   
+   ```bash
+   docker-compose up --build
+   ```
+
+**DINOv2は認証不要**: DINOv2モデル（`facebook/dinov2-base`）は認証なしで使用できます。DINOv3の認証設定が面倒な場合は、DINOv2をご利用ください。
 
 ## デモンストレーション
 

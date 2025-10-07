@@ -30,8 +30,12 @@ model = None
 async def load_model():
     global processor, model
     print(f"Loading model: {MODEL_NAME}")
-    processor = AutoImageProcessor.from_pretrained(MODEL_NAME)
-    model = AutoModel.from_pretrained(MODEL_NAME)
+    
+    hf_token = os.getenv("HF_TOKEN")
+    kwargs = {"token": hf_token} if hf_token else {}
+    
+    processor = AutoImageProcessor.from_pretrained(MODEL_NAME, **kwargs)
+    model = AutoModel.from_pretrained(MODEL_NAME, **kwargs)
     model = model.to(device)
     model.eval()
     print(f"Model loaded successfully on {device}")
