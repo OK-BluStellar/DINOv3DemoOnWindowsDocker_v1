@@ -61,15 +61,25 @@ async def upload_and_segment(
         patch_features = outputs.last_hidden_state[0, 1:]
         
         patch_size = model.config.patch_size
-        num_patches_h = original_height // patch_size
-        num_patches_w = original_width // patch_size
+        num_patches = int(patch_features.shape[0] ** 0.5)
+        num_patches_h = num_patches
+        num_patches_w = num_patches
+        processed_size = num_patches * patch_size
         
         patch_features = patch_features.view(num_patches_h, num_patches_w, -1)
         
-        patch_y_min = max(0, y_min // patch_size)
-        patch_y_max = min(num_patches_h, (y_max + patch_size - 1) // patch_size)
-        patch_x_min = max(0, x_min // patch_size)
-        patch_x_max = min(num_patches_w, (x_max + patch_size - 1) // patch_size)
+        scale_h = processed_size / original_height
+        scale_w = processed_size / original_width
+        
+        scaled_y_min = int(y_min * scale_h)
+        scaled_y_max = int(y_max * scale_h)
+        scaled_x_min = int(x_min * scale_w)
+        scaled_x_max = int(x_max * scale_w)
+        
+        patch_y_min = max(0, scaled_y_min // patch_size)
+        patch_y_max = min(num_patches_h, (scaled_y_max + patch_size - 1) // patch_size)
+        patch_x_min = max(0, scaled_x_min // patch_size)
+        patch_x_max = min(num_patches_w, (scaled_x_max + patch_size - 1) // patch_size)
         
         reference_patches = patch_features[patch_y_min:patch_y_max, patch_x_min:patch_x_max]
         reference_feature = reference_patches.mean(dim=[0, 1])
