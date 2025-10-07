@@ -8,6 +8,7 @@ from PIL import Image
 import numpy as np
 import io
 import base64
+import os
 from typing import Optional
 
 app = FastAPI()
@@ -20,7 +21,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-MODEL_NAME = "facebook/dinov2-base"
+MODEL_NAME = os.getenv("MODEL_NAME", "facebook/dinov2-base")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 processor = None
 model = None
@@ -28,9 +29,13 @@ model = None
 @app.on_event("startup")
 async def load_model():
     global processor, model
-    print(f"Loading DINOv2 model: {MODEL_NAME}")
-    processor = AutoImageProcessor.from_pretrained(MODEL_NAME)
-    model = AutoModel.from_pretrained(MODEL_NAME)
+    print(f"Loading model: {MODEL_NAME}")
+    
+    hf_token = os.getenv("HF_TOKEN")
+    kwargs = {"token": hf_token} if hf_token else {}
+    
+    processor = AutoImageProcessor.from_pretrained(MODEL_NAME, **kwargs)
+    model = AutoModel.from_pretrained(MODEL_NAME, **kwargs)
     model = model.to(device)
     model.eval()
     print(f"Model loaded successfully on {device}")
@@ -58,7 +63,8 @@ async def upload_and_segment(
         with torch.no_grad():
             outputs = model(**inputs)
         
-        patch_features = outputs.last_hidden_state[0, 1:]
+        num_register_tokens = getattr(model.config, 'num_register_tokens', 0)
+        patch_features = outputs.last_hidden_state[0, 1 + num_register_tokens:]
         
         patch_size = model.config.patch_size
         num_patches = int(patch_features.shape[0] ** 0.5)
@@ -113,9 +119,11 @@ async def upload_and_segment(
         return JSONResponse(content={
             "mask_image": f"data:image/png;base64,{mask_base64}",
             "metadata": {
+                "model_name": MODEL_NAME,
                 "patch_size": patch_size,
                 "num_patches_h": num_patches_h,
                 "num_patches_w": num_patches_w,
+                "num_register_tokens": num_register_tokens,
                 "original_size": [original_width, original_height],
                 "reference_region": {
                     "x_min": x_min,
