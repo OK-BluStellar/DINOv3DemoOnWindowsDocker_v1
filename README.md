@@ -10,9 +10,63 @@ DINOv3の強力な密な特徴量（Dense Features）を利用して、学習な
 
 - **画像アップロード**: 任意の画像をアップロードして処理
 - **参照領域選択**: マウスドラッグで矩形を描画し、参照パッチを指定
-- **Zero-Shotセグメンテーション**: DINOv2の特徴量を使用して類似領域を自動検出
+- **Zero-Shotセグメンテーション**: DINOv2/DINOv3の特徴量を使用して類似領域を自動検出
+- **複数モデルサポート**: DINOv2とDINOv3の両方に対応し、環境変数で簡単に切り替え可能
 - **マスク表示**: セグメンテーション結果を元画像にオーバーレイ表示
 - **透明度調整**: スライダーでマスクの透明度を調整可能
+
+## モデルの切り替え
+
+このアプリケーションは、DINOv2とDINOv3の両方のモデルをサポートしています。デフォルトではDINOv2が使用されますが、環境変数を設定することでDINOv3に切り替えることができます。
+
+### 利用可能なモデル
+
+#### DINOv2 (デフォルト)
+- モデル名: `facebook/dinov2-base`
+- 特徴: 安定した性能、より高速
+- トークン構造: [CLS token, patch tokens]
+
+#### DINOv3
+- モデル名: `facebook/dinov3-vitb16-pretrain-lvd1689m`
+- 特徴: 最新のアーキテクチャ、より高精度
+- トークン構造: [CLS token, register tokens, patch tokens]
+- その他のサイズ:
+  - Small: `facebook/dinov3-vits16-pretrain-lvd1689m`
+  - Large: `facebook/dinov3-vitl16-pretrain-lvd1689m`
+  - Huge: `facebook/dinov3-vithuge16-pretrain-lvd1689m`
+
+### モデルの変更方法
+
+**方法1: 環境変数を使用（推奨）**
+
+```bash
+# DINOv3を使用する場合
+export MODEL_NAME=facebook/dinov3-vitb16-pretrain-lvd1689m
+docker-compose up --build
+
+# DINOv2に戻す場合（または環境変数を削除）
+export MODEL_NAME=facebook/dinov2-base
+docker-compose up --build
+```
+
+**方法2: .envファイルを使用**
+
+プロジェクトのルートディレクトリに`.env`ファイルを作成し、以下を記述:
+
+```
+MODEL_NAME=facebook/dinov3-vitb16-pretrain-lvd1689m
+```
+
+その後、Docker Composeを起動:
+
+```bash
+docker-compose up --build
+```
+
+**注意事項:**
+- モデルを切り替えた後は、`docker-compose up --build`を実行してコンテナを再構築してください
+- 初回起動時は、モデルのダウンロードに時間がかかる場合があります
+- DINOv3モデルは、DINOv2と比較してメモリ使用量が若干多くなる場合があります
 
 ## デモンストレーション
 
@@ -51,7 +105,7 @@ DINOv3の強力な密な特徴量（Dense Features）を利用して、学習な
 - **FastAPI**: 高速なWeb APIフレームワーク
 - **PyTorch 2.8.0**: 深層学習フレームワーク
 - **Transformers 4.57.0**: Hugging Faceのモデルライブラリ
-- **DINOv2モデル**: `facebook/dinov2-base` (Hugging Face)
+- **DINOv2/DINOv3モデル**: `facebook/dinov2-base` (デフォルト) または `facebook/dinov3-vitb16-pretrain-lvd1689m` (Hugging Face)
 
 ### フロントエンド
 - **React 18** + **TypeScript**
@@ -184,9 +238,9 @@ GPUが正しく認識されていれば、nvidia-smiの出力が表示されま�
 - GPUが利用できない環境でもCPUで動作しますが、処理時間が長くなります
 - 初回実行時はモデルのダウンロードに時間がかかります（約3GB）
 
-## DINOv2モデルについて
+## DINOv2/DINOv3モデルについて
 
-このデモでは、Meta AIが開発した**DINOv2（facebook/dinov2-base）**モデルを使用しています。
+このデモでは、Meta AIが開発した**DINOv2**および**DINOv3**モデルを使用しています。デフォルトでは`facebook/dinov2-base`が使用されますが、環境変数で`facebook/dinov3-vitb16-pretrain-lvd1689m`などに切り替え可能です。
 
 ### モデルの特徴
 - **自己教師あり学習**: ラベルなしデータから特徴量を学習
@@ -194,12 +248,18 @@ GPUが正しく認識されていれば、nvidia-smiの出力が表示されま�
 - **汎用性**: 様々な下流タスクに適用可能
 - **Zero-Shot能力**: 追加学習なしで新しいタスクに対応
 
+### DINOv3の改善点
+- **レジスタートークン**: 4つのレジスタートークンを導入し、より安定した特徴抽出を実現
+- **大規模データセット**: LVD-142Mデータセットでの事前学習
+- **高精度化**: 様々なビジョンタスクでDINOv2を上回る性能
+
 ### 処理フロー
-1. 画像を14×14ピクセルのパッチに分割
-2. 各パッチから768次元の特徴ベクトルを抽出
-3. 参照領域のパッチ特徴量を平均化
-4. 全パッチとのコサイン類似度を計算
-5. 類似度マップを元の画像サイズにアップサンプリング
+1. 画像を14×14ピクセルまたは16×16ピクセルのパッチに分割（モデルによる）
+2. 各パッチから768次元の特徴ベクトルを抽出（DINOv2-base、DINOv3-base）
+3. レジスタートークンをスキップしてパッチ特徴量のみを取得（DINOv3の場合）
+4. 参照領域のパッチ特徴量を平均化
+5. 全パッチとのコサイン類似度を計算
+6. 類似度マップを元の画像サイズにアップサンプリング
 
 ## トラブルシューティング
 
@@ -262,7 +322,7 @@ docker-compose down -v
 
 ## 謝辞
 
-- Meta AIのDINOv2モデル
+- Meta AIのDINOv2/DINOv3モデル
 - Hugging Face Transformersライブラリ
 - FastAPIとReactのコミュニティ
 
