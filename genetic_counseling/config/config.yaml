@@ -1,0 +1,9 @@
+defaults:
+  - llm: llama3
+  - prompt: default_patient
+  - _self_
+
+app:
+  name: "Genetic Counseling Agent"
+  port: 7860
+  share: false
