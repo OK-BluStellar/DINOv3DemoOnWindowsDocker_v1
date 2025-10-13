@@ -1,0 +1,5 @@
+model_name: "gemma:7b"
+temperature: 0.7
+max_tokens: 2048
+top_p: 0.9
+ollama_base_url: "http://ollama:11434"
